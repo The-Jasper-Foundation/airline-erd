@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A 10-table airline booking database in UML, built to answer three client questions, with MySQL and mock data.">
+<title>Airline ERD · Jasper Galton-Fenzi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;600&family=Lexend:wght@500;600&display=swap">
+<style>
+/* Layout: one reading column (~68ch) for words; the diagram and SQL break out wider.
+   Low-glare sage paper, dyslexia-friendly faces, one colour per question (+ weight, never colour alone). */
+:root {
+  --bg: #eef2ef;
+  --surface: #f9fbf9;
+  --header: #dde5e0;
+  --ink: #1e2b26;
+  --muted: #55645d;
+  --line: #85958d;
+  --rule: #c9d3cd;
+  --code-bg: #e2e9e4;
+  --q1: #1b67a3;
+  --q2: #a8520a;
+  --q3: #85359a;
+  --new: #2b7655;
+  --bad: #ad2a22;
+  --half: #8a5d00;
+  --focus: #1b67a3;
+  --qc: var(--ink);
+
+  --f-display: "Lexend", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Verdana", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141b18; --surface: #1c2521; --header: #26322d; --ink: #e5ebe7; --muted: #a2b0a9;
+    --line: #6f8078; --rule: #33403a; --code-bg: #0f1512;
+    --q1: #72b6ec; --q2: #f0a15c; --q3: #d48ce4; --new: #6fd0a0; --bad: #f28a80; --half: #e8b64e; --focus: #72b6ec;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141b18; --surface: #1c2521; --header: #26322d; --ink: #e5ebe7; --muted: #a2b0a9;
+  --line: #6f8078; --rule: #33403a; --code-bg: #0f1512;
+  --q1: #72b6ec; --q2: #f0a15c; --q3: #d48ce4; --new: #6fd0a0; --bad: #f28a80; --half: #e8b64e; --focus: #72b6ec;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 18px;
+  line-height: 1.65;
+  padding-inline: 20px;
+  padding-block: 0 64px;
+}
+main { max-width: 1180px; margin: 0 auto; display: grid; gap: 56px; }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.25; text-wrap: balance; margin: 0; letter-spacing: -0.005em; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 600; }
+h2 { font-size: 26px; font-weight: 600; }
+h3 { font-size: 20px; font-weight: 600; }
+p { margin: 0; }
+strong { font-weight: 700; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+/* Header */
+header { padding-top: 40px; display: grid; gap: 14px; }
+.eyebrow { font-family: var(--f-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 21px; max-width: 46ch; }
+
+.lesson {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 20px 22px;
+  display: grid; gap: 8px;
+  max-width: 68ch;
+  background: var(--surface);
+}
+.lesson .label { font-family: var(--f-display); font-weight: 600; font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+/* Key */
+.key { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 28px; }
+.key div { display: grid; gap: 2px; min-width: 0; }
+.key dt { font-family: var(--f-mono); font-weight: 600; font-size: 15px; }
+.key dd { margin: 0; color: var(--muted); font-size: 16px; }
+.swatch-new { color: var(--new); }
+.dashed { display: inline-block; width: 30px; height: 16px; border: 2px dashed var(--ink); border-radius: 3px; vertical-align: -2px; }
+
+/* Diagram */
+.diagram-wrap { display: grid; gap: 14px; }
+.qbar { display: flex; flex-wrap: wrap; gap: 10px; }
+.qbar button {
+  font: 600 16px/1 var(--f-display);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.qbar button .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c, var(--ink)); }
+.qbar button[aria-pressed="true"] { border-color: var(--c, var(--ink)); box-shadow: inset 0 0 0 1px var(--c, var(--ink)); }
+.qbar button:hover { border-color: var(--c, var(--ink)); }
+.path {
+  font-size: 17px;
+  padding: 12px 16px;
+  border-left: 5px solid var(--qc);
+  background: var(--surface);
+  border-radius: 0 8px 8px 0;
+  min-height: 3.2em;
+  display: flex; align-items: center;
+}
+.scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); }
+.scroll svg { display: block; width: 100%; min-width: 920px; height: auto; }
+.hint { font-size: 15px; color: var(--muted); }
+
+svg .box rect.body { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+svg .box.isnew rect.body { stroke-dasharray: 7 5; stroke-width: 2; }
+svg .box rect.hdr { fill: var(--header); }
+svg .box .tname { font: 600 17px var(--f-display); fill: var(--ink); }
+svg .box .newtag { font: 600 12px var(--f-mono); fill: var(--new); }
+svg .attr { font: 400 14px var(--f-mono); fill: var(--ink); }
+svg .attr.added { fill: var(--new); font-weight: 600; }
+svg .tag { font: 600 12px var(--f-mono); fill: var(--muted); }
+svg .edge { fill: none; stroke: var(--line); stroke-width: 2; }
+svg .mult { font: 600 13px var(--f-mono); fill: var(--ink); }
+svg .rel { font: 400 13px var(--f-body); fill: var(--muted); }
+svg g, svg text, svg path, svg rect { transition: opacity .2s, stroke .2s, fill .2s; }
+
+/* Highlight state */
+.diagram-wrap[data-q]:not([data-q="all"]) svg .dim { opacity: 0.18; }
+svg .box.hl rect.body { stroke: var(--qc); stroke-width: 3.5; }
+svg .box.hl rect.hdr { fill: color-mix(in srgb, var(--qc) 22%, var(--header)); }
+svg .attr.hl { fill: var(--qc); font-weight: 600; }
+svg .edge.hl { stroke: var(--qc); stroke-width: 4.5; }
+svg .elabel.hl .mult, svg .elabel.hl .rel { fill: var(--qc); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) { svg g, svg text, svg path, svg rect { transition: none; } }
+
+/* Question cards */
+.questions { display: grid; gap: 48px; }
+.qcard { display: grid; gap: 22px; border-top: 6px solid var(--c); padding-top: 22px; }
+.qcard .top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 20px; }
+.qcard .ask { font-size: 20px; max-width: 60ch; }
+.qcard .ask span { color: var(--muted); font-size: 16px; display: block; }
+.show-btn {
+  font: 600 15px/1 var(--f-display); padding: 10px 14px; border-radius: 8px;
+  border: 2px solid var(--c); background: transparent; color: var(--ink); cursor: pointer;
+}
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px 36px; align-items: start; }
+.cols > * { min-width: 0; }
+.block { display: grid; gap: 10px; }
+.block h3 { font-size: 17px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.pill { display: inline-block; font: 600 14px/1 var(--f-display); padding: 7px 11px; border-radius: 999px; border: 2px solid currentColor; }
+.pill.bad { color: var(--bad); }
+.pill.half { color: var(--half); }
+ul.added { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+ul.added li::marker { color: var(--new); font-weight: 700; }
+.watch { padding: 12px 16px; background: var(--surface); border-radius: 8px; border: 1px solid var(--rule); }
+
+pre.sql {
+  margin: 0; padding: 16px 18px; background: var(--code-bg); border-radius: 8px;
+  overflow-x: auto; font-family: var(--f-mono); font-size: 14.5px; line-height: 1.6; color: var(--ink);
+}
+pre.sql .kw { font-weight: 600; color: var(--c); }
+pre.sql .cm { color: var(--muted); }
+ol.steps { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+.result { overflow-x: auto; }
+.result table { border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+.result th, .result td { text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.result th { font-family: var(--f-mono); font-size: 13px; color: var(--muted); font-weight: 600; }
+.say { background: var(--surface); border: 2px solid var(--c); border-radius: 10px; padding: 18px 20px; display: grid; gap: 8px; max-width: 68ch; }
+.say .label { font-family: var(--f-display); font-weight: 600; font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c); }
+
+/* Lower sections */
+section.simple { display: grid; gap: 18px; }
+.facts { display: grid; gap: 0; max-width: 68ch; border-top: 1px solid var(--rule); }
+.facts div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.facts div span:last-child { font-family: var(--f-mono); font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips span { font-family: var(--f-mono); font-size: 14px; padding: 6px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--rule); color: var(--muted); }
+ol.method { margin: 0; padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 16px; max-width: 68ch; }
+ol.method li { counter-increment: step; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; align-items: start; }
+ol.method li::before { content: counter(step); font: 600 20px/44px var(--f-display); text-align: center; width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--ink); }
+.book { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px 24px; }
+.book div { padding: 10px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 2px; }
+.book div span { color: var(--muted); font-size: 15px; font-family: var(--f-mono); }
+footer { color: var(--muted); font-size: 15px; border-top: 1px solid var(--rule); padding-top: 18px; }
+
+@media (max-width: 560px) {
+  body { font-size: 17px; }
+  .facts div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+</style>
+<style>footer a{color:inherit}</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Database design practice · ARU MOD002589</div>
+    <h1>The airline model, rebuilt small</h1>
+    <p class="lead">Ten tables. It answers all three client questions. Click a question to see the path it takes.</p>
+  </header>
+
+  <aside class="lesson">
+    <div class="label">The big lesson</div>
+    <p><strong>Start from the questions, not from everything the business does.</strong></p>
+    <p>The first version had 16 tables because it tried to store a whole airline. This one keeps only what the three questions need.</p>
+  </aside>
+
+  <section class="simple" aria-labelledby="key-h">
+    <h2 id="key-h">How to read the diagram</h2>
+    <dl class="key">
+      <div><dt>Box</dt><dd>A table. Name on top, columns underneath.</dd></div>
+      <div><dt>PK · primary key</dt><dd>The row's own ID. Like a passport number: it never repeats.</dd></div>
+      <div><dt>FK · foreign key</dt><dd>A column holding another table's PK. It is what makes a line real.</dd></div>
+      <div><dt><span class="swatch-new">+ green column</span></dt><dd>Added to answer one of the questions.</dd></div>
+      <div><dt><span class="dashed" aria-hidden="true"></span> dashed box</dt><dd>A whole new table.</dd></div>
+      <div><dt>1..1 · 0..* · 1..*</dt><dd>Exactly one · none or many · at least one.</dd></div>
+    </dl>
+    <p class="prose">Read each line from the many end. <strong>A Booking is made by one Client. A Client makes none or many Bookings.</strong></p>
+  </section>
+
+  <section class="diagram-wrap" id="diagram" data-q="all" aria-labelledby="dia-h">
+    <h2 id="dia-h">The model</h2>
+    <div class="qbar" role="group" aria-label="Highlight a question">
+      <button type="button" id="btn-all" data-q="all" aria-pressed="true">All tables</button>
+      <button type="button" id="btn-q1" data-q="1" aria-pressed="false" style="--c: var(--q1)"><span class="dot"></span>Q1 · Price alerts</button>
+      <button type="button" id="btn-q2" data-q="2" aria-pressed="false" style="--c: var(--q2)"><span class="dot"></span>Q2 · Bookings by country</button>
+      <button type="button" id="btn-q3" data-q="3" aria-pressed="false" style="--c: var(--q3)"><span class="dot"></span>Q3 · Family flights</button>
+    </div>
+    <div class="path" id="path" aria-live="polite">Pick a question. The tables and lines it uses light up; the rest fade.</div>
+    <div class="scroll">
+      <svg id="erd" viewBox="0 0 1380 942" role="img" aria-label="UML entity relationship diagram of the airline model: Client, PriceAlert, Airline, Country, Booking, Flight, Airport, Passenger, Fare and FareHistory, with multiplicities on each line."></svg>
+    </div>
+    <p class="hint">On a phone, scroll the diagram sideways.</p>
+  </section>
+
+  <section class="questions" aria-label="The three client questions">
+
+    <!-- Q1 -->
+    <article class="qcard" id="q1" style="--c: var(--q1)">
+      <div class="top">
+        <h2>Q1 · Price-change alerts</h2>
+        <button type="button" class="show-btn" data-show="1">Show on diagram</button>
+      </div>
+      <p class="ask">Find all changed prices, and the customers who opted in to price-change alerts.<span>As a programmer, I want to send price-change alerts to customers who opted in.</span></p>
+      <div class="cols">
+        <div class="block">
+          <h3>Old model</h3>
+          <p><span class="pill bad">Couldn't answer</span></p>
+          <p><code>fares.price</code> only held today's price. A new price overwrote the old one, so there was nothing to compare. Nothing recorded who wanted alerts.</p>
+        </div>
+        <div class="block">
+          <h3>What was added</h3>
+          <ul class="added">
+            <li><strong>FareHistory</strong>: a new row every time a price changes. Old price, new price, when.</li>
+            <li><strong>PriceAlert</strong>: links a Client to a Flight they want alerts for.</li>
+          </ul>
+          <p class="watch"><strong>Why a table in the middle?</strong> One client can watch many flights. One flight can be watched by many clients. That is many-to-many, and many-to-many always becomes a link table.</p>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="block">
+          <h3>The SQL</h3>
+<pre class="sql"><span class="kw">SELECT</span>  c.name, c.email, f.flight_number,
+        fa.passenger_type, fh.old_price, fh.new_price
+<span class="kw">FROM</span>    FareHistory fh
+<span class="kw">JOIN</span>    Fare       fa <span class="kw">ON</span> fa.fare_id   = fh.fare_id
+<span class="kw">JOIN</span>    Flight     f  <span class="kw">ON</span> f.flight_id  = fa.flight_id
+<span class="kw">JOIN</span>    PriceAlert pa <span class="kw">ON</span> pa.flight_id = f.flight_id
+<span class="kw">JOIN</span>    Client     c  <span class="kw">ON</span> c.client_id  = pa.client_id
+<span class="kw">WHERE</span>   fh.changed_at &gt;= '2019-11-01'   <span class="cm">-- since the last run</span>
+<span class="kw">ORDER BY</span> c.name;</pre>
+        </div>
+        <div class="block">
+          <h3>Read it like this</h3>
+          <ol class="steps">
+            <li>Start at <strong>FareHistory</strong>: every price change.</li>
+            <li>Join <strong>Fare</strong>, then <strong>Flight</strong>: which flight the price belongs to.</li>
+            <li>Join <strong>PriceAlert</strong>: who is watching that flight.</li>
+            <li>Join <strong>Client</strong>: their name and email.</li>
+            <li>Keep only changes since the program last ran.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="block">
+        <h3>What it returns with the practice data</h3>
+        <div class="result">
+          <table>
+            <thead><tr><th>name</th><th>flight</th><th>fare</th><th>old</th><th>new</th></tr></thead>
+            <tbody>
+              <tr><td>Amy Clarke</td><td>EK001</td><td>adult</td><td>480.00</td><td>450.00</td></tr>
+              <tr><td>Amy Clarke</td><td>EK001</td><td>child</td><td>360.00</td><td>340.00</td></tr>
+              <tr><td>Raj Patel</td><td>BA139</td><td>adult</td><td>580.00</td><td>610.00</td></tr>
+              <tr><td>Tom Hughes</td><td>EK001</td><td>adult</td><td>480.00</td><td>450.00</td></tr>
+              <tr><td>Tom Hughes</td><td>EK001</td><td>child</td><td>360.00</td><td>340.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="say">
+        <div class="label">In short</div>
+        <p>The first model couldn't answer Q1 because a new price overwrote the old one. <strong>FareHistory</strong> keeps every change, and <strong>PriceAlert</strong> records who opted in. Clients and flights are many-to-many here, so PriceAlert is a link table between them.</p>
+      </div>
+    </article>
+
+    <!-- Q2 -->
+    <article class="qcard" id="q2" style="--c: var(--q2)">
+      <div class="top">
+        <h2>Q2 · Bookings by country</h2>
+        <button type="button" class="show-btn" data-show="2">Show on diagram</button>
+      </div>
+      <p class="ask">Find bookings per country for one airline, most first.<span>As an airline, I want to know which country most bookings come from, to plan more services.</span></p>
+      <div class="cols">
+        <div class="block">
+          <h3>Old model</h3>
+          <p><span class="pill half">Half</span></p>
+          <p>It could find the airline, and the departure airport's country. It had <strong>no customer country</strong>.</p>
+          <p class="watch"><strong>Decide first:</strong> "which country" could mean the customer's country or the departure airport's country. This example uses the customer's, because that's where demand comes from.</p>
+        </div>
+        <div class="block">
+          <h3>What was added</h3>
+          <ul class="added">
+            <li><strong>Country</strong>: a lookup table. Each country is written once.</li>
+            <li><strong>Client.country_id</strong>: points at Country.</li>
+            <li><strong>Airport.country_id</strong>: points at the same table, so "UK" is never spelt two ways.</li>
+          </ul>
+          <p class="watch"><strong>Not a normalisation problem.</strong> The old tables were linked fine. The query would not fail; the country just wasn't stored anywhere.</p>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="block">
+          <h3>The SQL</h3>
+<pre class="sql"><span class="kw">SELECT</span>  co.name <span class="kw">AS</span> country, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> bookings
+<span class="kw">FROM</span>    Booking b
+<span class="kw">JOIN</span>    Flight  f  <span class="kw">ON</span> f.flight_id   = b.flight_id
+<span class="kw">JOIN</span>    Airline a  <span class="kw">ON</span> a.airline_id  = f.airline_id
+<span class="kw">JOIN</span>    Client  c  <span class="kw">ON</span> c.client_id   = b.client_id
+<span class="kw">JOIN</span>    Country co <span class="kw">ON</span> co.country_id = c.country_id
+<span class="kw">WHERE</span>   a.name = 'Emirates'
+  <span class="kw">AND</span>   b.status = 'confirmed'
+<span class="kw">GROUP BY</span> co.country_id, co.name
+<span class="kw">ORDER BY</span> bookings <span class="kw">DESC</span>;</pre>
+        </div>
+        <div class="block">
+          <h3>Read it like this</h3>
+          <ol class="steps">
+            <li>Start at <strong>Booking</strong>.</li>
+            <li>Join <strong>Flight</strong> and <strong>Airline</strong>. Keep only Emirates.</li>
+            <li>Join <strong>Client</strong> and <strong>Country</strong> to get each booking's country.</li>
+            <li>Leave out cancelled bookings.</li>
+            <li><code>GROUP BY</code> country, then <code>COUNT</code> the rows in each group.</li>
+            <li><code>ORDER BY</code> the count, biggest first (<code>DESC</code>).</li>
+          </ol>
+        </div>
+      </div>
+      <div class="block">
+        <h3>What it returns with the practice data</h3>
+        <div class="result">
+          <table>
+            <thead><tr><th>country</th><th>bookings</th></tr></thead>
+            <tbody>
+              <tr><td>United Kingdom</td><td>3</td></tr>
+              <tr><td>India</td><td>2</td></tr>
+              <tr><td>United Arab Emirates</td><td>1</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="say">
+        <div class="label">In short</div>
+        <p>"Which country" was ambiguous, so this uses the customer's country. A <strong>Country</strong> lookup table stores each country once, and both Client and Airport point to it. Cancelled bookings are left out so the count is real demand.</p>
+      </div>
+    </article>
+
+    <!-- Q3 -->
+    <article class="qcard" id="q3" style="--c: var(--q3)">
+      <div class="top">
+        <h2>Q3 · Family flights</h2>
+        <button type="button" class="show-btn" data-show="3">Show on diagram</button>
+      </div>
+      <p class="ask">List all flights in December 2019 that offer child discounts and kids' meals.<span>As a user, I want better options to travel with my family.</span></p>
+      <div class="cols">
+        <div class="block">
+          <h3>Old model</h3>
+          <p><span class="pill bad">Couldn't answer</span></p>
+          <p>Fares had no child price. There was no meal data. <code>dietary_restrictions</code> is what a passenger <strong>needs</strong>, not what a flight <strong>offers</strong>.</p>
+          <p class="watch"><strong>Watch out:</strong> filter on the <strong>flight's</strong> departure date. The booking date is when someone paid, not when they fly.</p>
+        </div>
+        <div class="block">
+          <h3>What was added</h3>
+          <ul class="added">
+            <li><strong>Fare.passenger_type</strong>: adult, child or infant. A child discount is a child fare row.</li>
+            <li><strong>Flight.offers_kids_meal</strong>: yes or no.</li>
+            <li><strong>Passenger.date_of_birth</strong>: so a child fare can be checked against a real child.</li>
+          </ul>
+          <p class="watch"><strong>Simple vs flexible.</strong> Yes/no is the simple option. If the airline had many meal types, a Meal table plus a link table would be better.</p>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="block">
+          <h3>The SQL</h3>
+<pre class="sql"><span class="kw">SELECT DISTINCT</span> f.flight_number, f.departure_time
+<span class="kw">FROM</span>    Flight f
+<span class="kw">JOIN</span>    Fare fa <span class="kw">ON</span> fa.flight_id = f.flight_id
+<span class="kw">WHERE</span>   f.departure_time &gt;= '2019-12-01'
+  <span class="kw">AND</span>   f.departure_time &lt;  '2020-01-01'
+  <span class="kw">AND</span>   f.offers_kids_meal = <span class="kw">TRUE</span>
+  <span class="kw">AND</span>   fa.passenger_type  = 'child'
+<span class="kw">ORDER BY</span> f.departure_time;</pre>
+        </div>
+        <div class="block">
+          <h3>Read it like this</h3>
+          <ol class="steps">
+            <li>Start at <strong>Flight</strong>.</li>
+            <li>Keep flights that depart in December 2019.</li>
+            <li>Keep flights that offer a kids' meal.</li>
+            <li>Join <strong>Fare</strong>. Keep flights that have a child fare.</li>
+            <li><code>DISTINCT</code>: show each flight once, even if it has two child fares.</li>
+          </ol>
+          <p class="hint">Stretch: check the child price is lower than the adult price. That needs a subquery (textbook 6.3.5).</p>
+        </div>
+      </div>
+      <div class="block">
+        <h3>What it returns with the practice data</h3>
+        <div class="result">
+          <table>
+            <thead><tr><th>flight_number</th><th>departure_time</th></tr></thead>
+            <tbody>
+              <tr><td>EK001</td><td>2019-12-20 08:00</td></tr>
+              <tr><td>BA139</td><td>2019-12-23 20:00</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">EK003 has a kids' meal but no child fare. BA107 has a child fare but no kids' meal. EK002 flies in November. All three are correctly left out.</p>
+      </div>
+      <div class="say">
+        <div class="label">In short</div>
+        <p>Q3 needed two things the first model didn't have: <strong>passenger_type</strong> on Fare, so a flight can have a child fare, and a yes/no <strong>offers_kids_meal</strong> on Flight. The filter uses the flight's departure date, not the booking date.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="simple" aria-labelledby="norm-h">
+    <h2 id="norm-h">Why this one is normalised</h2>
+    <p class="prose"><strong>Every fact lives in one place.</strong> Other tables point at it with an ID instead of copying it.</p>
+    <div class="facts">
+      <div><span>A country's name</span><span>only in Country</span></div>
+      <div><span>An airline's name</span><span>only in Airline</span></div>
+      <div><span>A client's email</span><span>only in Client</span></div>
+      <div><span>An airport's city</span><span>only in Airport</span></div>
+      <div><span>A price change</span><span>its own row in FareHistory</span></div>
+    </div>
+    <p class="prose"><strong>One thing per box.</strong> <code>passenger_type</code> holds one word. <code>offers_kids_meal</code> is yes or no. No lists with commas.</p>
+  </section>
+
+  <section class="simple" aria-labelledby="out-h">
+    <h2 id="out-h">What was left out, and why</h2>
+    <div class="chips">
+      <span>staff</span><span>payroll_details</span><span>flight_staff</span><span>aircraft</span><span>plane_history</span><span>disruptions</span><span>route_history</span><span>baggage_options</span><span>client_payment_information</span>
+    </div>
+    <p class="prose">None of the three questions need them. <strong>Add a table only when a question needs it.</strong></p>
+  </section>
+
+  <section class="simple" aria-labelledby="try-h">
+    <h2 id="try-h">Try it yourself</h2>
+    <p class="prose">The full MySQL script (all 10 tables, mock data and these three queries) is in this repository: <a href="airline_worked_example.sql"><code>airline_worked_example.sql</code></a>. Run it in MySQL Workbench or any MySQL 8 client. Then change a price, add a client, and run the queries again.</p>
+  </section>
+
+  <footer>A practice model from the Database Design and Implementation module at Anglia Ruskin University. Built with Claude as a study aid. All data is invented. · <a href="https://the-jasper-foundation.github.io/">Jasper Galton-Fenzi</a></footer>
+</main>
+
+<script>
+(function () {
+  var NS = "http://www.w3.org/2000/svg";
+  var W = 250, HDR = 36, ROW = 26;
+
+  // tables: [name, x, y, newFor, attrs[[col, tag, addedFor]]]
+  var tables = [
+    ["Client",      40,  70, null, [["client_id","PK"],["name"],["email"],["country_id","FK","2"]]],
+    ["PriceAlert", 380,  70, "1",  [["alert_id","PK"],["client_id","FK"],["flight_id","FK"],["created_at"]]],
+    ["Airline",    750,  70, null, [["airline_id","PK"],["name"]]],
+    ["Country",   1090,  70, "2",  [["country_id","PK"],["name"]]],
+    ["Booking",     40, 350, null, [["booking_id","PK"],["booking_ref"],["client_id","FK"],["flight_id","FK"],["booking_date"],["status"]]],
+    ["Flight",     380, 350, null, [["flight_id","PK"],["flight_number"],["airline_id","FK"],["origin_airport_id","FK"],["destination_airport_id","FK"],["departure_time"],["arrival_time"],["offers_kids_meal",null,"3"]]],
+    ["Airport",    750, 350, null, [["airport_id","PK"],["iata_code"],["name"],["city"],["country_id","FK","2"]]],
+    ["Passenger",   40, 700, null, [["passenger_id","PK"],["booking_id","FK"],["fare_id","FK"],["name"],["date_of_birth",null,"3"],["seat_number"]]],
+    ["Fare",       380, 700, null, [["fare_id","PK"],["flight_id","FK"],["cabin_class"],["passenger_type",null,"3"],["price"]]],
+    ["FareHistory",750, 700, "1",  [["history_id","PK"],["fare_id","FK"],["old_price"],["new_price"],["changed_at"]]]
+  ];
+
+  // edges: id, points, [parent-end label], [child-end label], [relationship name]
+  var edges = [
+    ["E1",  [[1215,70],[1215,30],[165,30],[165,70]], [1222,58,"1..1","start"], [172,58,"0..*","start"],  [690,22,"lives in","middle"]],
+    ["E2",  [[1150,168],[1150,438],[1000,438]],      [1157,190,"1..1","start"], [1008,430,"0..*","start"], [1157,310,"is in","start"]],
+    ["E3",  [[290,145],[380,145]],                   [296,137,"1..1","start"], [374,137,"0..*","end"],    [335,164,"set by","middle"]],
+    ["E4",  [[165,220],[165,350]],                   [172,242,"1..1","start"], [172,342,"0..*","start"],  [172,292,"made by","start"]],
+    ["E5",  [[505,350],[505,220]],                   [512,342,"1..1","start"], [512,242,"0..*","start"],  [512,292,"watches","start"]],
+    ["E6",  [[810,168],[810,285],[590,285],[590,350]],[817,190,"1..1","start"], [597,342,"0..*","start"], [700,277,"run by","middle"]],
+    ["E8",  [[380,450],[290,450]],                   [374,442,"1..1","end"],   [296,442,"0..*","start"],  [335,469,"is for","middle"]],
+    ["E9",  [[630,420],[750,420]],                   [744,412,"1..1","end"],   [636,412,"0..*","start"],  [690,438,"departs from","middle"]],
+    ["E10", [[630,480],[750,480]],                   [744,472,"1..1","end"],   [636,472,"0..*","start"],  [690,498,"arrives at","middle"]],
+    ["E11", [[505,604],[505,700]],                   [512,624,"1..1","start"], [512,692,"1..*","start"],  [512,660,"belongs to","start"]],
+    ["E12", [[630,790],[750,790]],                   [636,782,"1..1","start"], [744,782,"0..*","end"],    [690,808,"records","middle"]],
+    ["E13", [[165,552],[165,700]],                   [172,574,"1..1","start"], [172,692,"1..*","start"],  [172,630,"is on","start"]],
+    ["E14", [[380,790],[290,790]],                   [374,782,"1..1","end"],   [296,782,"0..*","start"],  [335,808,"pays","middle"]]
+  ];
+
+  var Q = {
+    "1": {
+      color: "var(--q1)",
+      tables: ["FareHistory","Fare","Flight","PriceAlert","Client"],
+      edges: ["E12","E11","E5","E3"],
+      attrs: { FareHistory:["fare_id","old_price","new_price","changed_at"], Fare:["fare_id","flight_id","passenger_type"], Flight:["flight_id","flight_number"], PriceAlert:["client_id","flight_id"], Client:["client_id","name","email"] },
+      path: "<strong>FareHistory → Fare → Flight → PriceAlert → Client</strong>&nbsp;· find the change, then who is watching that flight."
+    },
+    "2": {
+      color: "var(--q2)",
+      tables: ["Booking","Flight","Airline","Client","Country"],
+      edges: ["E8","E6","E4","E1"],
+      attrs: { Booking:["client_id","flight_id","status"], Flight:["flight_id","airline_id"], Airline:["airline_id","name"], Client:["client_id","country_id"], Country:["country_id","name"] },
+      path: "<strong>Booking → Flight → Airline</strong>&nbsp;to pick one airline · <strong>Booking → Client → Country</strong>&nbsp;to count per country."
+    },
+    "3": {
+      color: "var(--q3)",
+      tables: ["Flight","Fare"],
+      edges: ["E11"],
+      attrs: { Flight:["flight_id","flight_number","departure_time","offers_kids_meal"], Fare:["flight_id","passenger_type"] },
+      path: "<strong>Flight → Fare</strong>&nbsp;· December flights with a kids' meal, that also have a child fare."
+    }
+  };
+
+  var svg = document.getElementById("erd");
+  function el(name, attrs, parent) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function text(parent, x, y, str, cls, anchor) {
+    var t = el("text", { x: x, y: y, "class": cls, "text-anchor": anchor || "start" }, parent);
+    t.textContent = str;
+    return t;
+  }
+
+  var edgeLayer = el("g", {}, svg);
+  var boxLayer = el("g", {}, svg);
+  var edgeEls = {}, labelEls = {}, boxEls = {}, attrEls = {};
+
+  edges.forEach(function (e) {
+    var d = e[1].map(function (p, i) { return (i ? "L" : "M") + p[0] + " " + p[1]; }).join(" ");
+    edgeEls[e[0]] = el("path", { d: d, "class": "edge" }, edgeLayer);
+    var g = el("g", { "class": "elabel" }, edgeLayer);
+    text(g, e[2][0], e[2][1], e[2][2], "mult", e[2][3]);
+    text(g, e[3][0], e[3][1], e[3][2], "mult", e[3][3]);
+    text(g, e[4][0], e[4][1], e[4][2], "rel", e[4][3]);
+    labelEls[e[0]] = g;
+  });
+
+  tables.forEach(function (t) {
+    var name = t[0], x = t[1], y = t[2], newFor = t[3], attrs = t[4];
+    var h = HDR + attrs.length * ROW + 10;
+    var g = el("g", { "class": "box" + (newFor ? " isnew" : "") }, boxLayer);
+    el("rect", { x: x, y: y, width: W, height: h, rx: 6, "class": "body" }, g);
+    el("rect", { x: x + 1.5, y: y + 1.5, width: W - 3, height: HDR - 3, rx: 5, "class": "hdr" }, g);
+    text(g, x + 14, y + 24, name, "tname");
+    if (newFor) text(g, x + W - 12, y + 23, "NEW · Q" + newFor, "newtag", "end");
+    attrEls[name] = {};
+    attrs.forEach(function (a, i) {
+      var ay = y + HDR + 20 + i * ROW;
+      var label = (a[2] ? "+ " : "") + a[0];
+      var at = text(g, x + 14, ay, label, "attr" + (a[2] ? " added" : ""));
+      attrEls[name][a[0]] = at;
+      if (a[1]) text(g, x + W - 12, ay, a[1], "tag", "end");
+    });
+    boxEls[name] = g;
+  });
+
+  var wrap = document.getElementById("diagram");
+  var pathBox = document.getElementById("path");
+  var defaultPath = pathBox.innerHTML;
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".qbar button"));
+
+  function select(q) {
+    wrap.setAttribute("data-q", q);
+    buttons.forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-q") === q ? "true" : "false"); });
+    var spec = Q[q];
+    wrap.style.setProperty("--qc", spec ? spec.color : "var(--ink)");
+    Object.keys(boxEls).forEach(function (n) {
+      var on = spec && spec.tables.indexOf(n) > -1;
+      boxEls[n].classList.toggle("hl", !!on);
+      boxEls[n].classList.toggle("dim", !!spec && !on);
+      Object.keys(attrEls[n]).forEach(function (col) {
+        var aon = spec && spec.attrs[n] && spec.attrs[n].indexOf(col) > -1;
+        attrEls[n][col].classList.toggle("hl", !!aon);
+      });
+    });
+    Object.keys(edgeEls).forEach(function (id) {
+      var on = spec && spec.edges.indexOf(id) > -1;
+      edgeEls[id].classList.toggle("hl", !!on);
+      edgeEls[id].classList.toggle("dim", !!spec && !on);
+      labelEls[id].classList.toggle("hl", !!on);
+      labelEls[id].classList.toggle("dim", !!spec && !on);
+    });
+    pathBox.innerHTML = spec ? spec.path : defaultPath;
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () { select(b.getAttribute("data-q")); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".show-btn"), function (b) {
+    b.addEventListener("click", function () {
+      select(b.getAttribute("data-show"));
+      wrap.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    });
+  });
+
+  var h = (location.hash || "").replace("#", "");
+  if (h === "q1" || h === "q2" || h === "q3") select(h.slice(1));
+})();
+</script>
+
+</body>
+</html>
